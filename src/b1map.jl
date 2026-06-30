@@ -7,7 +7,10 @@ TODO: Assuming that kappa = 1. Need to allow kappa to not be 1.
 function roughness_penalty(z)
     # Offsets to compute neighboring pixel differences.
     N, M = size(z)
-    nl_mls = ((1,0), (0, 1))
+
+    # TODO: Currently these offsets are only the left, right, top, bottom neighbors of each pixel.
+    # Should the user be able to change the offsets they want to use for the roughness penalty?
+    nl_mls = ((1,0), (0, 1)) 
     penalty = 0.0
     for offset in nl_mls
         n_l = offset[1]
