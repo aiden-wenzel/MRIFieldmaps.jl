@@ -1,4 +1,4 @@
-export roughness_penalty, regularizer
+export roughness_penalty, regularizer, L
 
 """
 Eq 41 in regularized b1 mapping paper.
@@ -6,6 +6,7 @@ TODO: Assuming that kappa = 1. Need to allow kappa to not be 1.
 """
 function roughness_penalty(z)
     # Offsets to compute neighboring pixel differences.
+    # Note: in this case, M denotes the width of the image, not the measurement number.
     N, M = size(z)
 
     # TODO: Currently these offsets are only the left, right, top, bottom neighbors of each pixel.
@@ -32,7 +33,17 @@ function regularizer(zks)
     K = size(zks, 1)
     regularized_cost = 0.0
     for k=1:K
-        regularized_cost += roughness_penalty(zks[k])
+        regularized_cost += roughness_penalty(zks[k, :, :])
     end
     return regularized_cost
+end
+
+"""
+Eq. 5 in regularized b1 mapping paper.
+"""
+function L(zks, f, F)
+    println(size(zks)) 
+
+    N = size(zks, 2)
+    D = size(zks, 3)
 end

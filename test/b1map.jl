@@ -1,6 +1,6 @@
 # test/b1map.jl
 
-using MRIFieldmaps: roughness_penalty, regularizer
+using MRIFieldmaps: roughness_penalty, regularizer, L
 using Test: @test, @testset, @test_throws, @inferred
 
 @testset "b1map.jl" begin
@@ -15,6 +15,6 @@ using Test: @test, @testset, @test_throws, @inferred
     @test isapprox(roughness_penalty(z2), expected)
 
     # See if the regularizer function can sum up the roughness costs from z1 and z2.
-    zks = [z1, z2]
+    zks = cat(reshape(z1, 1, 3, 3), reshape(z2, 1, 3, 3), dims=1)
     @test isapprox(regularizer(zks), expected)
 end
