@@ -41,9 +41,20 @@ end
 """
 Eq. 5 in regularized b1 mapping paper.
 """
-function L(zks, f, F)
-    println(size(zks)) 
-
+function L(zks, f)
     N = size(zks, 2)
     D = size(zks, 3)
+end
+
+
+"""
+Eq. 4 in regularized b1 mapping paper.
+Cost function to optimze.
+params = [zks, f, beta]
+"""
+function psi(params)
+    zks = params[1]
+    f = params[2]
+    beta = params[3]
+    return L(zks, f) + beta * regularizer(zks)
 end
