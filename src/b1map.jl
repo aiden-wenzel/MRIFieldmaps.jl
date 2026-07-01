@@ -33,10 +33,10 @@ Eq. 6 in regularized b1 mapping paper.
 zks are of shape (K, N, D)
 """
 function regularizer(zks)
-    K = size(zks, 1)
+    K = size(zks, 3)
     regularized_cost = 0.0
     for k=1:K
-        regularized_cost += roughness_penalty(zks[k, :, :])
+        regularized_cost += roughness_penalty(zks[:, :, k])
     end
     return regularized_cost
 end

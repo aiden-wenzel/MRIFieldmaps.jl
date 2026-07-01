@@ -15,6 +15,7 @@ using Test: @test, @testset, @test_throws, @inferred
     @test isapprox(roughness_penalty(z2), expected)
 
     # See if the regularizer function can sum up the roughness costs from z1 and z2.
-    zks = cat(reshape(z1, 1, 3, 3), reshape(z2, 1, 3, 3), dims=1)
+    zdims = (3, 3, 1)
+    zks = cat(reshape(z1, zdims), reshape(z2, zdims), dims=3)
     @test isapprox(regularizer(zks), expected)
 end
