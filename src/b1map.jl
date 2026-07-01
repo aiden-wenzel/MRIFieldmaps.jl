@@ -88,9 +88,6 @@ end
 
 """
 Eq. 4 in regularized b1 mapping paper.
-Cost function to optimze.
-params = [zks, f] where size(zks) = (K, N, D)
-and size(f) = (N, D) and beta is a real constant.
 """
 function psi(
         params::AbstractVector, 
@@ -104,6 +101,23 @@ function psi(
     # TODO: unpack zks, and fj's from params
     zks, fjs = 
     return log_loss(zks, fjs, F, Chi, Y) + Beta * regularizer(zks)
+end
+
+function unpack(
+        params::AbstractVector,
+        zdims::Tuple,
+        fdims::Tuple 
+    )
+    N, D, K = zdims
+    z_num_elements = N*D*K
+
+    N == size(fdims, 1) || throw(ArgumentError("N's doin't match."))
+    D == size(fdims, 2) || throw(ArgumentError("D's doin't match."))
+
+    f_num_elements = N * D
+    zks = reshape(params[1:z_num_elements], zdims)
+    fjs = reshape(params[z_num_elements + 1:end], fdims)
+    return zks, fjs
 end
 
 # function big_fit(yjk, chi, F, beta)
