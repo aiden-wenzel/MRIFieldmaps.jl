@@ -125,8 +125,8 @@ function unpack(
     N, D, K = zdims
     z_num_elements = N*D*K
 
-    N == size(fdims, 1) || throw(ArgumentError("N's doin't match."))
-    D == size(fdims, 2) || throw(ArgumentError("D's doin't match."))
+    N == size(fdims, 1) || throw(ArgumentError("N's don't match."))
+    D == size(fdims, 2) || throw(ArgumentError("D's don't match."))
 
     f_num_elements = N * D
     zks = reshape(params[1:z_num_elements], zdims)
