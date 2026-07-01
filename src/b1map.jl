@@ -1,3 +1,6 @@
+# using ADTypes, AutoforwardDiff
+# using Optim: optimize, LBFGS 
+
 export roughness_penalty, regularizer, log_loss
 
 """
@@ -119,10 +122,13 @@ function unpack(
     return zks, fjs
 end
 
-# function big_fit(yjk, chi, F, beta)
-#     cost(x) = psi(x, F, beta, size(z), size(f))
-#     z = Optim.optimize(cost, ...)
-#     return z.minimizer
+# function b1_fit(zdims, fdims, Beta, Y, Chi, F)
+#     cost(x) = psi(x, zdims, fdims, Beta, Y, Chi, F)
+#     x0 = TODO: Define initial guess.
+#     options = Optim.Options(store_trace=true)
+#     out = Optim.optimize(cost, x0, LBFGS(), options; autodiff=AutoforwardDiff())
+#     zk_opt, fj_opt = unpack(out.minimizer, zdims, fdims)
+#     return zk_opt, fj_opt
 # end  
 
 # This code will go in a test file.
