@@ -35,7 +35,7 @@ end
 Eq. 6 in regularized b1 mapping paper.
 zks are of shape (K, N, D)
 """
-function regularizer(zks)
+function regularizer(zks::AbstractArray)
     K = size(zks, 3)
     regularized_cost = 0.0
     for k=1:K
@@ -53,7 +53,13 @@ f is of shape (N, D)
 """
 Leftmost term in equation 3. 
 """
-function signal_model(zks::AbstractArray, fjs::AbstractArray, index::Tuple, Chi::AbstractArray, F::Function)
+function signal_model(
+        zks::AbstractArray,
+        fjs::AbstractArray,
+        index::Tuple,
+        Chi::AbstractArray,
+        F::Function
+    )
     n, d, m = index[1], index[2], index[3]
     fj = fjs[n, d]
 
@@ -71,7 +77,13 @@ end
 """
 Eq. 5
 """
-function log_loss(zks::AbstractArray, fjs::AbstractArray, Chi::AbstractArray, Y::AbstractArray, F::Function,)
+function log_loss(
+        zks::AbstractArray, 
+        fjs::AbstractArray, 
+        Chi::AbstractArray,
+        Y::AbstractArray,
+        F::Function,
+    )
     N, D, K = size(zks)
     K == size(Chi, 2) || throw(ArgumentError("K's don't match"))
 
@@ -122,14 +134,23 @@ function unpack(
     return zks, fjs
 end
 
-# function b1_fit(zdims, fdims, Beta, Y, Chi, F)
-#     cost(x) = psi(x, zdims, fdims, Beta, Y, Chi, F)
-#     x0 = TODO: Define initial guess.
-#     options = Optim.Options(store_trace=true)
-#     out = Optim.optimize(cost, x0, LBFGS(), options; autodiff=AutoforwardDiff())
-#     zk_opt, fj_opt = unpack(out.minimizer, zdims, fdims)
-#     return zk_opt, fj_opt
-# end  
+"""
+function b1_fit(
+        zdims::Tuple,
+        fdims::Tuple,
+        Beta::Real,
+        Y::AbstractArray,
+        Chi::Matrix,
+        F::Function
+    )
+    cost(x) = psi(x, zdims, fdims, Beta, Y, Chi, F)
+    x0 = TODO: Define initial guess.
+    options = Optim.Options(store_trace=true)
+    out = Optim.optimize(cost, x0, LBFGS(), options; autodiff=AutoforwardDiff())
+    zk_opt, fj_opt = unpack(out.minimizer, zdims, fdims)
+    return zk_opt, fj_opt
+end
+"""
 
 # This code will go in a test file.
 #=
