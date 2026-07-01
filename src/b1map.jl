@@ -94,12 +94,11 @@ function psi(
         zdims::Tuple, 
         fdims::Tuple, 
         Beta::Real, 
-        F::Function, 
         Y::AbstractArray,
-        Chi::AbstractArray
+        Chi::AbstractArray,
+        F::Function, 
     )
-    # TODO: unpack zks, and fj's from params
-    zks, fjs = 
+    zks, fjs = unpack(params, zdims, fdims)
     return log_loss(zks, fjs, F, Chi, Y) + Beta * regularizer(zks)
 end
 
