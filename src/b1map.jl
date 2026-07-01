@@ -65,20 +65,25 @@ function signal_model(zks::AbstractArray, fjs::AbstractArray, index::Tuple, Chi:
 
 end
 
-# What should the shape of zks be?
-function log_loss(zks::AbstractArray, fjs, F::Function, Chi::AbstractArray, Y::AbstractArray)
-    K, N, D = size(zks)
-    M = size(Chi, 1)
+"""
+Eq. 5
+"""
+function log_loss(zks::AbstractArray, fjs::AbstractArray, Chi::AbstractArray, Y::AbstractArray, F::Function,)
+    N, D, K = size(zks)
     K == size(Chi, 2) || throw(ArgumentError("K's don't match"))
+
+    M = size(Chi, 1)
  
     loss_sum = 0.0
-    for m in 1:M
-        for n in 1:N
-            for d in 1:D
-                loss_sum += 1/2 * abs(Y[n, d] - signal_model(fjs[n, d], F, Chi, zks)) ^ 2
+    for n in 1:N
+        for d in 1:D
+            for m in 1:M
+                loss_sum += 1/2 * abs(Y[n, d, m] - signal_model(zks, fjs, (n, d, m), Chi, F)) ^ 2
             end
         end
     end
+
+    return loss_sum
 end
 
 """
