@@ -50,20 +50,26 @@ f is of shape (N, D)
 """
 Leftmost term in equation 3. 
 """
-function signal_model(f_j, F::Function, Chi::AbstractArray, zks::AbstractArray)
-    K = size(zks, 1)
+function signal_model(zks::AbstractArray, fjs::AbstractArray, index::Tuple, Chi::AbstractArray, F::Function)
+    n, d, m = index[1], index[2], index[3]
+    fj = fjs[n, d]
+
+    K = size(zks)
+    K == size(Chi, 2) || throw(ArgumentError("K's don't match"))
     coil_sum = 0.0
     for k in 1:K
-        coil_sum += Chi[m, k] * z[k, j]
+        coil_sum += Chi[m, k] * z[n, d, k]
     end
-    return f_j * F(coil_sum)
+
+    return fj * F(coil_sum)
+
 end
 
 # What should the shape of zks be?
 function log_loss(zks::AbstractArray, fjs, F::Function, Chi::AbstractArray, Y::AbstractArray)
     K, N, D = size(zks)
     M = size(Chi, 1)
-    K == size(Chi, 2) || throw(ArgumentError("size mismatch"))
+    K == size(Chi, 2) || throw(ArgumentError("K's don't match"))
  
     loss_sum = 0.0
     for m in 1:M
