@@ -1,4 +1,4 @@
-export roughness_penalty, regularizer, L
+export roughness_penalty, regularizer, log_loss
 
 """
 Eq 41 in regularized b1 mapping paper.
@@ -56,11 +56,11 @@ function signal_model(f_j, F::Function, Chi::AbstractArray, zks::AbstractArray)
     for k in 1:K
         coil_sum += Chi[m, k] * z[k, j]
     end
-    return f_j * coil_sum
+    return f_j * F(coil_sum)
 end
 
 # What should the shape of zks be?
-function log_loss(zks::AbstractArray, f, F::Function, Chi::AbstractArray, Y::AbstractArray)
+function log_loss(zks::AbstractArray, fjs, F::Function, Chi::AbstractArray, Y::AbstractArray)
     K, N, D = size(zks)
     M = size(Chi, 1)
     K == size(Chi, 2) || throw(ArgumentError("size mismatch"))
@@ -69,7 +69,7 @@ function log_loss(zks::AbstractArray, f, F::Function, Chi::AbstractArray, Y::Abs
     for m in 1:M
         for n in 1:N
             for d in 1:D
-                loss_sum += 1/2 * abs(Y[n, d] - signal_model(f[n, d], F, Chi, zks)) ^ 2
+                loss_sum += 1/2 * abs(Y[n, d] - signal_model(fjs[n, d], F, Chi, zks)) ^ 2
             end
         end
     end
@@ -81,7 +81,18 @@ Cost function to optimze.
 params = [zks, f] where size(zks) = (K, N, D)
 and size(f) = (N, D) and beta is a real constant.
 """
-function psi(params::AbstractVector, F::Function, Beta::Real, zdims::Tuple, fdims::Tuple)
+function psi(
+        params::AbstractVector, 
+        zdims::Tuple, 
+        fdims::Tuple, 
+        Beta::Real, 
+        F::Function, 
+        Y::AbstractArray,
+        Chi::AbstractArray
+    )
+    # TODO: unpack zks, and fj's from params
+    zks, fjs = 
+    return log_loss(zks, fjs, F, Chi, Y) + Beta * regularizer(zks)
 end
 
 # function big_fit(yjk, chi, F, beta)
