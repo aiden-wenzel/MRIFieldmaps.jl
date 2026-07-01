@@ -18,4 +18,20 @@ using Test: @test, @testset, @test_throws, @inferred
     zdims = (3, 3, 1)
     zks = cat(reshape(z1, zdims), reshape(z2, zdims), dims=3)
     @test isapprox(regularizer(zks), expected)
+
+    # Simulate data from paper
+
+    K = 1
+    M = 2
+    Chi::Matrix = zeros((M, K))
+    Chi[1, 1] = 1
+    Chi[2, 1] = 2
+
+    F = sin
+
+    zdims = (N, D, K) # TODO: What are N and D?
+    fdims = (N, D)
+
+    Beta = 0.7
+    z_hat, f_hat = b1_fit(zdims, fdims, Beta, Y, Chi, F)
 end
