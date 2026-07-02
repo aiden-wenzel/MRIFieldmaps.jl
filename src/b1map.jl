@@ -1,7 +1,9 @@
-# using ADTypes, AutoforwardDiff
-# using Optim: optimize, LBFGS 
+import ForwardDiff
+using ADTypes: AutoForwardDiff
+using Optim: optimize, LBFGS 
+import Optim
 
-export roughness_penalty, regularizer, log_loss, unpack
+export roughness_penalty, regularizer, log_loss, unpack, b1_fit
 
 """
 Eq 41 in regularized b1 mapping paper.
@@ -63,11 +65,11 @@ function signal_model(
     n, d, m = index[1], index[2], index[3]
     fj = fjs[n, d]
 
-    K = size(zks)
+    K = size(zks, 3)
     K == size(Chi, 2) || throw(ArgumentError("K's don't match"))
     coil_sum = 0.0
     for k in 1:K
-        coil_sum += Chi[m, k] * z[n, d, k]
+        coil_sum += Chi[m, k] * zks[n, d, k]
     end
 
     return fj * F(coil_sum)
@@ -114,7 +116,7 @@ function psi(
         F::Function, 
     )
     zks, fjs = unpack(params, zdims, fdims)
-    return log_loss(zks, fjs, F, Chi, Y) + Beta * regularizer(zks)
+    return log_loss(zks, fjs, Chi, Y, F) + Beta * regularizer(zks)
 end
 
 function unpack(
@@ -133,7 +135,6 @@ function unpack(
     return zks, fjs
 end
 
-"""
 function b1_fit(
         zdims::Tuple,
         fdims::Tuple,
@@ -142,18 +143,11 @@ function b1_fit(
         Chi::Matrix,
         F::Function
     )
-    cost(x) = psi(x, zdims, fdims, Beta, Y, Chi, F)
-    x0 = TODO: Define initial guess.
+    cost(x::AbstractVector) = psi(x, zdims, fdims, Beta, Y, Chi, F)
+    N, D, K = zdims
+    x0 =  ones(N*D*K + N*D) # TODO: Define initial guess
     options = Optim.Options(store_trace=true)
-    out = Optim.optimize(cost, x0, LBFGS(), options; autodiff=AutoforwardDiff())
+    out = Optim.optimize(cost, x0, LBFGS(), options; autodiff=AutoForwardDiff())
     zk_opt, fj_opt = unpack(out.minimizer, zdims, fdims)
     return zk_opt, fj_opt
 end
-"""
-
-# This code will go in a test file.
-#=
-# load data
-beta = 7
-F = sin
-=#
