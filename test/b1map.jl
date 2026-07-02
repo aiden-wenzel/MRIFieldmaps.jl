@@ -1,6 +1,6 @@
 # test/b1map.jl
 
-using MRIFieldmaps: roughness_penalty, regularizer, unpack
+using MRIFieldmaps: roughness_penalty, regularizer, unpack, b1_fit
 using Test: @test, @testset, @test_throws, @inferred
 
 @testset "b1map.jl" begin
@@ -54,19 +54,31 @@ using Test: @test, @testset, @test_throws, @inferred
     @test expected_fjs == fjs
 
     # Simulate data from paper
-    """
     K = 1
     M = 2
+    N = 4
+    D = 5
+
     Chi::Matrix = zeros((M, K))
     Chi[1, 1] = 1
     Chi[2, 1] = 2
 
     F = sin
 
-    zdims = (N, D, K) # TODO: What are N and D?
+    zdims = (N, D, K)
     fdims = (N, D)
 
     Beta = 0.7
+
+    fjs = ones((N, D))
+    ajs = ones((N, D))
+    std = 0.05
+    noise_1 = std .* (randn((N, D)) + im .* randn((N, D))) / sqrt(2)
+    noise_2 = std .* (randn((N, D)) + im .* randn((N, D))) / sqrt(2)
+
+    yj1 = fjs .* sin.(ajs) + noise_1
+    yj2 = fjs .* sin.(2*ajs) + noise_2
+    Y = cat(reshape(yj1, (N, D, 1)), reshape(yj2, (N, D, 1)), dims=3)
+    @test size(Y) == (N, D, M)
     z_hat, f_hat = b1_fit(zdims, fdims, Beta, Y, Chi, F)
-    """
 end
