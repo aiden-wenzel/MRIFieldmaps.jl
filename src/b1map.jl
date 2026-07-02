@@ -1,7 +1,7 @@
 # using ADTypes, AutoforwardDiff
 # using Optim: optimize, LBFGS 
 
-export roughness_penalty, regularizer, log_loss
+export roughness_penalty, regularizer, log_loss, unpack
 
 """
 Eq 41 in regularized b1 mapping paper.
@@ -123,14 +123,13 @@ function unpack(
         fdims::Tuple 
     )
     N, D, K = zdims
-    z_num_elements = N*D*K
-
-    N == size(fdims, 1) || throw(ArgumentError("N's don't match."))
-    D == size(fdims, 2) || throw(ArgumentError("D's don't match."))
+    N == fdims[1] || throw(ArgumentError("N's don't match."))
+    D == fdims[2] || throw(ArgumentError("D's don't match."))
 
     f_num_elements = N * D
+    z_num_elements = N*D*K
     zks = reshape(params[1:z_num_elements], zdims)
-    fjs = reshape(params[z_num_elements + 1:end], fdims)
+    fjs = reshape(params[z_num_elements + 1:z_num_elements+f_num_elements], fdims)
     return zks, fjs
 end
 
