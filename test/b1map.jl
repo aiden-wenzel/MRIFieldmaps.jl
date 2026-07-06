@@ -1,6 +1,6 @@
 # test/b1map.jl
 
-using MRIFieldmaps: roughness_penalty, regularizer, unpack, b1_fit
+using MRIFieldmaps: roughness_penalty, regularizer, unpack, b1_fit, DAM
 using Test: @test, @testset, @test_throws, @inferred
 
 @testset "b1map.jl" begin
@@ -70,15 +70,11 @@ using Test: @test, @testset, @test_throws, @inferred
 
     Beta = 0.7
 
-    fjs = ones((N, D))
-    ajs = ones((N, D))
+    fj = ones((N, D))
+    aj = ones((N, D))
     std = 0.05
-    noise_1 = std .* (randn((N, D)) + im .* randn((N, D))) / sqrt(2)
-    noise_2 = std .* (randn((N, D)) + im .* randn((N, D))) / sqrt(2)
-
-    yj1 = fjs .* sin.(ajs) + noise_1
-    yj2 = fjs .* sin.(2*ajs) + noise_2
-    Y = cat(reshape(yj1, (N, D, 1)), reshape(yj2, (N, D, 1)), dims=3)
+    Y = DAM(fj, aj, std)
     @test size(Y) == (N, D, M)
     z_hat, f_hat = b1_fit(zdims, fdims, Beta, Y, Chi, F)
+    println(z_hat)
 end

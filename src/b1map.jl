@@ -3,7 +3,7 @@ using ADTypes: AutoForwardDiff
 using Optim: optimize, LBFGS 
 import Optim
 
-export roughness_penalty, regularizer, log_loss, unpack, b1_fit
+export roughness_penalty, regularizer, log_loss, unpack, b1_fit, complex_gaussian_noise, DAM
 
 """
 Compute the roughness penalty for a 2d image as defined by Eq. 41 in regularized b1 mapping paper.
@@ -161,4 +161,29 @@ function b1_fit(
     out = Optim.optimize(cost, x0, LBFGS(), options; autodiff=AutoForwardDiff())
     zk_opt, fj_opt = unpack(out.minimizer, zdims, fdims)
     return zk_opt, fj_opt
+end
+
+function DAM(
+    fj::AbstractMatrix,
+    aj::AbstractMatrix,
+    std::Float64
+)
+    N, D = size(fj)
+    N == size(aj, 1) || throw(ArgumentError("N's don't match."))
+    D == size(aj, 2) || throw(ArgumentError("D's don't match."))
+
+    yj1 = fj .* sin.(aj) + complex_gaussian_noise(std, (N, D))
+    yj2 = fj .* sin.(2*aj) + complex_gaussian_noise(std, (N, D))
+
+    ydata = ones(ComplexF64, (N, D, 2))
+    ydata[:, :, 1] = yj1
+    ydata[:, :, 2] = yj2
+    return ydata
+end
+
+function complex_gaussian_noise(
+    std::Float64,
+    dims::Tuple
+)
+    return std .* (randn(dims) + im .* randn(dims)) / sqrt(2)
 end
