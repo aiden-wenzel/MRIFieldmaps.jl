@@ -6,15 +6,21 @@ import Optim
 export roughness_penalty, regularizer, log_loss, unpack, b1_fit
 
 """
-Eq 41 in regularized b1 mapping paper.
-TODO: Assuming that kappa = 1. Need to allow kappa to not be 1.
-z should be an image of shape (N, M)
+Compute the roughness penalty for a 2d image as defined by Eq. 41 in regularized b1 mapping paper.
+
+# In
+- `z` 2D image
+- `nl_mls` Tuple of tuple offsets which describe the neighbor pixels to compute roughness
+
+# Out
+- `penalty` The roughness penalty of an image
 """
 function roughness_penalty(
         z::AbstractMatrix;
         nl_mls::Tuple = ((1,0), (0, 1)),
     )
 
+    # TODO: Assuming that kappa = 1. Need to allow kappa to not be 1.
     # Offsets to compute neighboring pixel differences.
     # In this case, M denotes the width of the image, not the measurement number.
     N, M = size(z)
@@ -34,8 +40,13 @@ function roughness_penalty(
 end
 
 """
-Eq. 6 in regularized b1 mapping paper.
-zks are of shape (K, N, D)
+Compute the total roughness penalty over each coil as defined by Eq. 6 in regularized b1 mapping paper.
+
+# In
+- `zks` an array of sizes (K, N, D) where K denotes the number of coils, and N and D are the height and width of each image respectively
+
+# Out
+- `regularized_cost` returns the sum of roughness penalties accross each coil.
 """
 function regularizer(zks::AbstractArray)
     K = size(zks, 3)
