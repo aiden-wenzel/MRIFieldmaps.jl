@@ -3,6 +3,9 @@ uuid = "5af58b90-8a55-4daf-adb4-2008a66a38cf"
 version = "0.0.4"
 authors = ["Jeff Fessler <fessler@umich.edu> and others"]
 
+[workspace]
+projects = ["docs", "test"]
+
 [deps]
 ADTypes = "47edcb42-4c32-4615-8424-f2b9edc5f35b"
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
@@ -20,4 +23,4 @@ ImageGeoms = "0.10, 0.11"
 LimitedLDLFactorizations = "0.5"
 Optim = "2.2.1"
 StatsBase = "0.33, 0.34"
-julia = "v1.10"
+julia = "1.12.6"
