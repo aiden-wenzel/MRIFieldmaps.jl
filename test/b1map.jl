@@ -75,6 +75,6 @@ using Test: @test, @testset, @test_throws, @inferred
     std = 0.05
     Y = DAM(fj, aj, std)
     @test size(Y) == (N, D, M)
-    z_hat, f_hat = b1_fit(zdims, fdims, Beta, Y, Chi, F)
+    z_hat, f_hat = b1_fit(Beta, Y, Chi, F)
     println(z_hat)
 end

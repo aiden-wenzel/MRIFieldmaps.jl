@@ -5,6 +5,8 @@ import Optim
 
 export roughness_penalty, regularizer, log_loss, unpack, b1_fit, complex_gaussian_noise, DAM
 
+# TODO: Change (N, D) to (N1, N2)
+
 """
 Compute the roughness penalty for a 2d image as defined by Eq. 41 in regularized b1 mapping paper.
 
@@ -146,17 +148,26 @@ function unpack(
     return zks, fjs
 end
 
+"""
+- `Y` is (N, D, M)
+- `Chi` is (M, K)
+"""
 function b1_fit(
-        zdims::Tuple,
-        fdims::Tuple,
         Beta::Real,
         Y::AbstractArray,
         Chi::Matrix,
         F::Function
     )
+    # TODO: check that the bottom half of Chi is twice the top half of Chi.
+
+    N, D, M = size(Y)
+    K = size(Chi, 2) 
+    M == size(Chi, 1) || throw(ArgumentError("M's don't match."))
+    zdims = (N, D, K)
+    fdims = (N, D)
     cost(x::AbstractVector) = psi(x, zdims, fdims, Beta, Y, Chi, F)
-    N, D, K = zdims
-    x0 =  ones(N*D*K + N*D) # TODO: Define initial guess
+    # TODO:
+    x0 =  ones(N*D*K + N*D) * 0.2# TODO: Define initial guess
     options = Optim.Options(store_trace=true)
     out = Optim.optimize(cost, x0, LBFGS(), options; autodiff=AutoForwardDiff())
     zk_opt, fj_opt = unpack(out.minimizer, zdims, fdims)
@@ -172,8 +183,8 @@ function DAM(
     N == size(aj, 1) || throw(ArgumentError("N's don't match."))
     D == size(aj, 2) || throw(ArgumentError("D's don't match."))
 
-    yj1 = fj .* sin.(aj) + complex_gaussian_noise(std, (N, D))
-    yj2 = fj .* sin.(2*aj) + complex_gaussian_noise(std, (N, D))
+    yj1 = fj .* sin.(aj) + std * randn(ComplexF32, (N, D))
+    yj2 = fj .* sin.(2*aj) + std * randn(ComplexF32, (N, D))
 
     ydata = ones(ComplexF64, (N, D, 2))
     ydata[:, :, 1] = yj1
