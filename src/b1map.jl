@@ -274,10 +274,3 @@ function DAM(
     ydata[:, :, 2] = yj2
     return ydata
 end
-
-function complex_gaussian_noise(
-    std::Float64,
-    dims::Tuple
-)
-    return std .* (randn(dims) + im .* randn(dims)) / sqrt(2)
-end
