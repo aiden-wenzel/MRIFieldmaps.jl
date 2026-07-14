@@ -148,6 +148,32 @@ function unpack(
     return zks, fjs
 end
 
+function H(
+    z::AbstractArray,
+    F::Function
+)
+    return F.(z) ./ exp.(im .* z)
+end
+
+function compute_x_hat(
+    Y::AbstractArray,
+    K::Int,
+    F::Function
+)
+    N, D, M = size(Y)
+    x_hat_mags = zeros((N, D, K))
+    for m in 1:K
+        x_hat_mags[:, :, m] = acos.(0.5 .* abs.(Y[:, :, m + K] ./ Y[:, :, m]))
+    end
+
+    x_hat_angles = zeros((N, D, K))
+    for m in 1:K
+        x_hat_angles[:, :, m] = angle.(Y[:, :, m]) - angle.(H(abs.(x_hat_mags[:, :, K]), F))
+    end
+
+    return x_hat_mags .* exp.(im .* x_hat_angles)
+end
+
 """
 - `Y` is (N, D, M)
 - `Chi` is (M, K)
@@ -172,7 +198,7 @@ function b1_fit(
     zdims = (N, D, K)
     fdims = (N, D)
     cost(x::AbstractVector) = psi(x, zdims, fdims, Beta, Y, Chi, F)
-    # TODO:
+    x_hat = compute_x_hat(Y, K, F)
     x0 =  ones(N*D*K + N*D) * 0.2# TODO: Define initial guess
     options = Optim.Options(store_trace=true)
     out = Optim.optimize(cost, x0, LBFGS(), options; autodiff=AutoForwardDiff())
