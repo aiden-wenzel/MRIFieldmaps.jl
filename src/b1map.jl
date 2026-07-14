@@ -162,7 +162,13 @@ function b1_fit(
 
     N, D, M = size(Y)
     K = size(Chi, 2) 
+
+    # Error checking
     M == size(Chi, 1) || throw(ArgumentError("M's don't match."))
+    M == 2*K || throw(ArgumentError("Chi must be M x M/2."))
+    Chi_tilda = Chi[1:Int32(M/2), :]
+    isapprox(Chi[Int32(M/2) + 1:end, :], 2*Chi_tilda) || throw(ArgumentError("The bottom half of Chi must be twice the top half of Chi."))
+    
     zdims = (N, D, K)
     fdims = (N, D)
     cost(x::AbstractVector) = psi(x, zdims, fdims, Beta, Y, Chi, F)
