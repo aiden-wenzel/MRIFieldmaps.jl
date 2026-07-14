@@ -238,10 +238,17 @@ function b1_fit(
     x_hat_flat = reshape(x_hat_perm, K, :)
     z_hat_flat = Chi_tilda \ x_hat_flat
     z_hat_perm = reshape(z_hat_flat, K, N, D)
+
     z_hat = permutedims(z_hat_perm, (2, 3, 1))
+    f_hat = compute_f_hat(Y, z_hat, Chi, F)
 
-    x0 =  ones(N*D*K + N*D) * 0.2# TODO: Define initial guess
+    z_hat_flat = reshape(z_hat, :)
+    f_hat_flat = reshape(f_hat, :)
 
+    size(z_hat_flat) == (N*D*K,) || throw(ArgumentError(""))
+    size(f_hat_flat) == (N*D,) || throw(ArgumentError(""))
+
+    x0 = abs.([z_hat_flat; f_hat_flat])
     cost(x::AbstractVector) = psi(x, zdims, fdims, Beta, Y, Chi, F)
     options = Optim.Options(store_trace=true)
     out = Optim.optimize(cost, x0, LBFGS(), options; autodiff=AutoForwardDiff())
