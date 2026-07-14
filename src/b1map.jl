@@ -174,10 +174,45 @@ function compute_x_hat(
     return x_hat_mags .* exp.(im .* x_hat_angles)
 end
 
-"""
-- `Y` is (N, D, M)
-- `Chi` is (M, K)
-"""
+function compute_composite_map(
+    z_hat::AbstractArray,
+    chi::AbstractMatrix
+)
+    N, D, K = size(z_hat)
+    M = size(chi, 1)
+    K == size(chi, 2) || throw(ArgumentError("K's don't match."))
+
+    x = zeros(N, D, M)
+    for k in 1:K
+        z_flat = reshape(z_hat[:, :, k], :, 1) # N*D x 1
+        x_perm = chi[:, k] * z_flat' # M x N*D
+        x_perm = reshape(x_perm, M, N, D) # M x N x D
+        x += permutedims(x_perm, (2, 3, 1)) # N, D, M
+    end
+
+    return x
+end
+
+function compute_f_hat(
+    Y::AbstractArray,
+    z_hat::AbstractArray,
+    chi::AbstractMatrix,
+    F::Function
+)
+    N, D, M = size(Y)
+    xjm = compute_composite_map(z_hat, chi)
+
+    top = zeros(N, D)
+    bottom = zeros(N, D)
+
+    for m in 1:M
+        top += real.(conj.(Y[:, :, m]) .* F.(xjm[:, :, m]))
+        bottom += abs.(F.(xjm[:, :, m])) .^ 2
+    end
+
+    return top ./ bottom
+end
+
 function b1_fit(
         Beta::Real,
         Y::AbstractArray,
