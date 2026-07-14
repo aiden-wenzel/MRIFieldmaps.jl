@@ -188,6 +188,8 @@ function b1_fit(
 
     N, D, M = size(Y)
     K = size(Chi, 2) 
+    zdims = (N, D, K)
+    fdims = (N, D)
 
     # Error checking
     M == size(Chi, 1) || throw(ArgumentError("M's don't match."))
@@ -195,14 +197,21 @@ function b1_fit(
     Chi_tilda = Chi[1:Int32(M/2), :]
     isapprox(Chi[Int32(M/2) + 1:end, :], 2*Chi_tilda) || throw(ArgumentError("The bottom half of Chi must be twice the top half of Chi."))
     
-    zdims = (N, D, K)
-    fdims = (N, D)
-    cost(x::AbstractVector) = psi(x, zdims, fdims, Beta, Y, Chi, F)
-    x_hat = compute_x_hat(Y, K, F)
+    # Finding initial guess.
+    x_hat = compute_x_hat(Y, K, F) # x_hat is N, D, K
+    x_hat_perm = PermutedDimsArray(x_hat, (3, 1, 2))
+    x_hat_flat = reshape(x_hat_perm, K, :)
+    z_hat_flat = Chi_tilda \ x_hat_flat
+    z_hat_perm = reshape(z_hat_flat, K, N, D)
+    z_hat = permutedims(z_hat_perm, (2, 3, 1))
+
     x0 =  ones(N*D*K + N*D) * 0.2# TODO: Define initial guess
+
+    cost(x::AbstractVector) = psi(x, zdims, fdims, Beta, Y, Chi, F)
     options = Optim.Options(store_trace=true)
     out = Optim.optimize(cost, x0, LBFGS(), options; autodiff=AutoForwardDiff())
     zk_opt, fj_opt = unpack(out.minimizer, zdims, fdims)
+
     return zk_opt, fj_opt
 end
 
