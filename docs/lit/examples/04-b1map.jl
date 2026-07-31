@@ -17,7 +17,7 @@ using the Julia package
 using BlochSim: snr2sigma
 using ImagePhantoms: ellipse_parameters, SheppLoganBrainWeb, ellipse
 using ImagePhantoms: phantom
-#src using MRIFieldmaps: #todo
+using MRIFieldmaps: b1_fit
 using MIRTjim: jim, prompt
 using Random: seed!
 using Unitful: mm
@@ -262,10 +262,8 @@ pdam = jim(
 
 
 
-#=
 ## Regularized B1+ mapping
-todo
-=#
+zk_opt, fj_opt = b1_fit(beta, )
 
 #=
 ## Discussion
