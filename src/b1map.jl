@@ -33,7 +33,7 @@ function roughness_penalty(
         m_l = offset[2]
         for n in 1+abs(n_l):N-abs(n_l)
             for m in 1+abs(m_l):M-abs(m_l)
-                penalty += (2 * z[n, m] - z[n - n_l, m - m_l] - z[n + n_l, m+m_l])^2
+                penalty += abs2(2 * z[n, m] - z[n - n_l, m - m_l] - z[n + n_l, m+m_l])
             end
         end
     end
@@ -108,7 +108,7 @@ function log_loss(
     for n in 1:N
         for d in 1:D
             for m in 1:M
-                loss_sum += 1/2 * abs(Y[n, d, m] - signal_model(zks, fjs, (n, d, m), Chi, F)) ^ 2
+                loss_sum += 1/2 * abs2(Y[n, d, m] - signal_model(zks, fjs, (n, d, m), Chi, F))
             end
         end
     end
@@ -137,14 +137,23 @@ function unpack(
         zdims::Tuple,
         fdims::Tuple 
     )
+
+    # params = [re(z); im(z); re(f); im(f)]
     N, D, K = zdims
     N == fdims[1] || throw(ArgumentError("N's don't match."))
     D == fdims[2] || throw(ArgumentError("D's don't match."))
 
-    f_num_elements = N * D
-    z_num_elements = N*D*K
-    zks = reshape(params[1:z_num_elements], zdims)
-    fjs = reshape(params[z_num_elements + 1:z_num_elements+f_num_elements], fdims)
+    fn = N*D
+    zn = N*D*K
+    
+    zks_real = params[1:zn]
+    zks_im = params[zn+1 : 2*zn]
+    zks = reshape(complex.(zks_real, zks_im), zdims)
+
+    fjs_real = params[2*zn+1: 2*zn + fn]
+    fjs_im = params[2*zn+fn+1: 2*zn+2*fn]
+    fjs = reshape(complex.(fjs_real, fjs_im), fdims)
+
     return zks, fjs
 end
 
@@ -248,7 +257,12 @@ function b1_fit(
     size(z_hat_flat) == (N*D*K,) || throw(ArgumentError(""))
     size(f_hat_flat) == (N*D,) || throw(ArgumentError(""))
 
-    x0 = abs.([z_hat_flat; f_hat_flat])
+    z_hat_real = real.(z_hat_flat)
+    z_hat_im = imag.(z_hat_flat)
+    f_hat_real = real.(f_hat_flat)
+    f_hat_im = imag.(f_hat_flat)
+    x0 = [z_hat_real; z_hat_im; f_hat_real; f_hat_im]
+
     cost(x::AbstractVector) = psi(x, zdims, fdims, Beta, Y, Chi, F)
     options = Optim.Options(store_trace=true)
     out = Optim.optimize(cost, x0, LBFGS(), options; autodiff=AutoForwardDiff())
