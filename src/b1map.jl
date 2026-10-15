@@ -185,7 +185,7 @@ end
 
 function compute_composite_map(
     z_hat::AbstractArray,
-    chi::AbstractMatrix
+    chi::AbstractArray
 )
     N, D, K = size(z_hat)
     M = size(chi, 1)
@@ -205,7 +205,7 @@ end
 function compute_f_hat(
     Y::AbstractArray,
     z_hat::AbstractArray,
-    chi::AbstractMatrix,
+    chi::AbstractArray,
     F::Function
 )
     N, D, M = size(Y)
@@ -225,7 +225,7 @@ end
 function b1_fit(
         Beta::Real,
         Y::AbstractArray,
-        Chi::Matrix,
+        Chi::AbstractArray,
         F::Function
     )
     # TODO: check that the bottom half of Chi is twice the top half of Chi.
