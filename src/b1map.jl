@@ -42,9 +42,9 @@ end
 """
 Single-element evaluation helper for log-loss step. Fuses real/imag extractions.
 """
-function l_equation_elem(y, f, chi_z_elem, F::Function)
-    g_val = F(chi_z_elem)
-    return -real(y) * f * real(g_val) - imag(y) * f * imag(g_val) + 0.5 * f^2 * abs2(g_val)
+function l_equation_elem(y, f, a, b, F::Function)
+    g_val = F(complex(a, b))
+    return 0.5 * abs2(y - f * g_val)
 end
 
 """
@@ -64,7 +64,7 @@ function log_loss(
     Chi_z = reshape(reshape(zks, N * D, K) * Chi', N, D, M)
 
     # Fused calculation over broadcasted arrays
-    l_array = l_equation_elem.(Y, fjs, Chi_z, F)
+    l_array = l_equation_elem.(Y, fjs, real.(Chi_z), imag.(Chi_z), F)
     return real(sum(l_array))
 end
 
@@ -212,7 +212,7 @@ function b1_fit(
 
     cost(x::AbstractVector) = psi(x, zdims, fdims, Beta, Y, Chi, F)
     options = Optim.Options(
-        #iterations = 10,
+        iterations = 10000,
         show_trace = true
     )
     
