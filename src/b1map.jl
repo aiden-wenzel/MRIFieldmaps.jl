@@ -1,5 +1,5 @@
-import ForwardDiff
-using ADTypes: AutoForwardDiff
+using Zygote
+using ADTypes: AutoReverseDiff, AutoZygote
 using Optim: optimize, LBFGS 
 import Optim
 
@@ -27,12 +27,12 @@ function roughness_penalty(
     # In this case, M denotes the width of the image, not the measurement number.
     N, M = size(z)
 
-    penalty = 0.0
+    penalty = zero(real(eltype(z)))
     for offset in nl_mls
         n_l = offset[1]
         m_l = offset[2]
-        for n in 1+abs(n_l):N-abs(n_l)
-            for m in 1+abs(m_l):M-abs(m_l)
+        @inbounds for n in 1+abs(n_l):N-abs(n_l)
+            @simd for m in 1+abs(m_l):M-abs(m_l)
                 penalty += abs2(2 * z[n, m] - z[n - n_l, m - m_l] - z[n + n_l, m+m_l])
             end
         end
@@ -52,7 +52,7 @@ Compute the total roughness penalty over each coil as defined by Eq. 6 in regula
 """
 function regularizer(zks::AbstractArray)
     K = size(zks, 3)
-    regularized_cost = 0.0
+    regularized_cost = zero(real(eltype(zks)))
     for k=1:K
         regularized_cost += roughness_penalty(zks[:, :, k])
     end
@@ -80,13 +80,32 @@ function signal_model(
 
     K = size(zks, 3)
     K == size(Chi, 2) || throw(ArgumentError("K's don't match"))
-    coil_sum = 0.0
+    coil_sum = real(zero(eltype(zks)))
     for k in 1:K
         coil_sum += Chi[m, k] * zks[n, d, k]
     end
 
     return fj * F(coil_sum)
 
+end
+
+"""
+Eq. 14
+"""
+function g(
+    a, b, F::Function
+)
+    return F(complex(a, b))
+end
+
+"""
+Eq. 15
+# TODO: Rename
+"""
+function l_equation(
+    y, f, a, b, F::Function
+)
+    return -real(y) * f * real(g(a, b, F)) -imag(y) * f * imag(g(a, b, F)) + 0.5 * f^2 * abs2(g(a, b, F))
 end
 
 """
@@ -99,21 +118,13 @@ function log_loss(
         Y::AbstractArray,
         F::Function,
     )
-    N, D, K = size(zks)
-    K == size(Chi, 2) || throw(ArgumentError("K's don't match"))
 
     M = size(Chi, 1)
- 
-    loss_sum = 0.0
-    for n in 1:N
-        for d in 1:D
-            for m in 1:M
-                loss_sum += 1/2 * abs2(Y[n, d, m] - signal_model(zks, fjs, (n, d, m), Chi, F))
-            end
-        end
-    end
-
-    return loss_sum
+    N, D, K = size(zks)
+    Chi_z = reshape(zks, N*D, K) * Chi'
+    Chi_z = reshape(Chi_z, N, D, M)
+    l_array = l_equation.(Y, fjs, real.(Chi_z), imag.(Chi_z), F)
+    return real(sum(l_array))
 end
 
 """
@@ -146,12 +157,12 @@ function unpack(
     fn = N*D
     zn = N*D*K
     
-    zks_real = params[1:zn]
-    zks_im = params[zn+1 : 2*zn]
+    zks_real = view(params,1:zn)
+    zks_im = view(params,zn+1 : 2*zn)
     zks = reshape(complex.(zks_real, zks_im), zdims)
 
-    fjs_real = params[2*zn+1: 2*zn + fn]
-    fjs_im = params[2*zn+fn+1: 2*zn+2*fn]
+    fjs_real = view(params, 2*zn+1: 2*zn + fn)
+    fjs_im = view(params, 2*zn+fn+1: 2*zn+2*fn)
     fjs = reshape(complex.(fjs_real, fjs_im), fdims)
 
     return zks, fjs
@@ -161,7 +172,7 @@ function H(
     z::AbstractArray,
     F::Function
 )
-    return F.(z) ./ exp.(im .* z)
+    return F.(z) ./ (exp.(im .* z) .+ 1e-12)
 end
 
 function compute_x_hat(
@@ -169,13 +180,15 @@ function compute_x_hat(
     K::Int,
     F::Function
 )
+    T = eltype(Y)
     N, D, M = size(Y)
-    x_hat_mags = zeros((N, D, K))
+    x_hat_mags = zeros(T, N, D, K)
     for m in 1:K
-        x_hat_mags[:, :, m] = acos.(0.5 .* abs.(Y[:, :, m + K] ./ Y[:, :, m]))
+        ratio = real(0.5 .* abs.(Y[:, :, m + K] ./ (Y[:, :, m] .+ 1e-12)))
+        x_hat_mags[:, :, m] = acos.(clamp.(ratio, zero(real(T)), one(real(T))-1e-7))
     end
 
-    x_hat_angles = zeros((N, D, K))
+    x_hat_angles = zeros(eltype(Y), N, D, K)
     for m in 1:K
         x_hat_angles[:, :, m] = angle.(Y[:, :, m]) - angle.(H(abs.(x_hat_mags[:, :, K]), F))
     end
@@ -191,7 +204,7 @@ function compute_composite_map(
     M = size(chi, 1)
     K == size(chi, 2) || throw(ArgumentError("K's don't match."))
 
-    x = zeros(N, D, M)
+    x = zeros(eltype(z_hat), N, D, M)
     for k in 1:K
         z_flat = reshape(z_hat[:, :, k], :, 1) # N*D x 1
         x_perm = chi[:, k] * z_flat' # M x N*D
@@ -211,8 +224,8 @@ function compute_f_hat(
     N, D, M = size(Y)
     xjm = compute_composite_map(z_hat, chi)
 
-    top = zeros(N, D)
-    bottom = zeros(N, D)
+    top = zeros(eltype(Y), N, D)
+    bottom = zeros(eltype(Y), N, D)
 
     for m in 1:M
         top += real.(conj.(Y[:, :, m]) .* F.(xjm[:, :, m]))
@@ -264,8 +277,12 @@ function b1_fit(
     x0 = [z_hat_real; z_hat_im; f_hat_real; f_hat_im]
 
     cost(x::AbstractVector) = psi(x, zdims, fdims, Beta, Y, Chi, F)
-    options = Optim.Options(store_trace=true)
-    out = Optim.optimize(cost, x0, LBFGS(), options; autodiff=AutoForwardDiff())
+    options = Optim.Options(
+        iterations=10,
+        show_trace = true
+    )
+    println("Optimizing")
+    out = Optim.optimize(cost, x0, LBFGS(), options; autodiff=AutoZygote())
     zk_opt, fj_opt = unpack(out.minimizer, zdims, fdims)
 
     return zk_opt, fj_opt
