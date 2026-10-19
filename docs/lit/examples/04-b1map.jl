@@ -132,8 +132,8 @@ end
 
 smap = stack(splat(_rcv), (
     (maximum(x) + 8dx, maximum(y) + 8dy), # upper right corner
-    (maximum(x) + 8dx, minimum(y) - 8dy), # lower right corner
-    (minimum(x) - 20dx, 0dy), # middle left border
+    # (maximum(x) + 8dx, minimum(y) - 8dy), # lower right corner
+    # (minimum(x) - 20dx, 0dy), # middle left border
   )
 );
 
@@ -167,7 +167,7 @@ ps = jim(
 #=
 ## B1+ transmit maps: ground truth
 =#
-ncoilt = 4
+ncoilt = 1
 function _xmit(it::Int)
     wx, wy = sincos(2π/ncoilt*it) .* 3maximum(x)
     wire = (a,b) -> biot_savart_wire(a, b, wx, wy)
@@ -263,8 +263,26 @@ pdam = jim(
 
 
 ## Regularized B1+ mapping
-zk_opt, fj_opt = b1_fit(beta, )
+ycomb = dropdims(ycomb, dims = 3)
+beta = 0.90
+MAX_ITTER = 5000
+zk_opt, fj_opt = b1_fit(beta, ycomb, chi, sin, MAX_ITTER)
 
+function compute_b1_map_rsos(zk_opt::AbstractArray)
+    # zk_opt is of shape (N, D, K)
+    # Takes the root-sum-of-squares across the coil dimension (dim 3)
+    return sqrt.(sum(abs2, zk_opt, dims=3)[:, :, 1])
+end
+
+b1_map = compute_b1_map_rsos(zk_opt)
+
+pdam = jim(
+ jim(x, y, b1_dam, "Estimated B1+ maps, SNR=$snr_db";
+  nrow=1, prompt=false, clim,),
+ jim(x, y, b1_map, "B1+?"; nrow=1, prompt=false, clim,),
+ jim(x, y, emask .* abs.(b1_true), "True B1+ maps";
+  nrow=1, prompt=false, clim),
+)
 #=
 ## Discussion
 todo

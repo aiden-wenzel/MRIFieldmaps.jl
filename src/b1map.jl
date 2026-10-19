@@ -180,7 +180,8 @@ function b1_fit(
         Beta::Real,
         Y::AbstractArray,
         Chi::AbstractArray,
-        F::Function
+        F::Function,
+        MAX_ITTER::Int
     )
     N, D, M = size(Y)
     K = size(Chi, 2) 
@@ -212,7 +213,7 @@ function b1_fit(
 
     cost(x::AbstractVector) = psi(x, zdims, fdims, Beta, Y, Chi, F)
     options = Optim.Options(
-        iterations = 10000,
+        iterations = MAX_ITTER,
         show_trace = true
     )
     
