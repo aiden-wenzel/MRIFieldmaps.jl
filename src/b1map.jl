@@ -6,24 +6,30 @@ import Optim
 export roughness_penalty, regularizer, log_loss, unpack, b1_fit, complex_gaussian_noise, DAM
 
 """
-Compute the roughness penalty for a 2d image using vectorized slice operations
-to keep Zygote reverse-mode differentiation fast.
+Compute the roughness penalty for a 2d image with vectorized operations. See eqation 41 in regularized B1 mapping paper.
+
+# In
+- `im` 2d image of size (N1, N2)
+- `nl_mls` Coordinate offsets to compute roughness. Defaults to top, bottom, left, and right.
+
+# Out
+- `penalty` The roughness penalty for the image.
 """
 function roughness_penalty(
-        z::AbstractMatrix;
+        im::AbstractMatrix;
         nl_mls::Tuple = ((1, 0), (0, 1))
     )
-    N, M = size(z)
-    penalty = zero(real(eltype(z)))
+    N1, N2 = size(im)
+    penalty = zero(real(eltype(im)))
     
     for offset in nl_mls
         n_l, m_l = offset[1], offset[2]
         abs_n, abs_m = abs(n_l), abs(m_l)
 
         # Slice views to compute 2*z[n,m] - z[n-n_l, m-m_l] - z[n+n_l, m+m_l] without loops
-        center = @view z[1+abs_n:N-abs_n, 1+abs_m:M-abs_m]
-        left   = @view z[1:N-2*abs_n,     1:M-2*abs_m]
-        right  = @view z[1+2*abs_n:N,     1+2*abs_m:M]
+        center = @view im[1+abs_n:N1-abs_n, 1+abs_m:N2-abs_m]
+        left   = @view im[1:N1-2*abs_n,     1:N2-2*abs_m]
+        right  = @view im[1+2*abs_n:N1,     1+2*abs_m:N2]
 
         penalty += sum(abs2, 2 .* center .- left .- right)
     end
@@ -32,7 +38,13 @@ function roughness_penalty(
 end
 
 """
-Compute the total roughness penalty over each coil slice using sum generator syntax.
+Compute the total roughness penalty over each coil slice using sum generator syntax. See equation 6.
+
+# In
+- `zks` Unknown b1 feild map of size (N1, N2, K) where N1 and N2 are spatial dimensions and K is the coil number.
+
+# Out
+- `cost` Returns the total roughness penalty across each coil.
 """
 function regularizer(zks::AbstractArray)
     K = size(zks, 3)
@@ -40,7 +52,7 @@ function regularizer(zks::AbstractArray)
 end
 
 """
-Single-element evaluation helper for log-loss step. Fuses real/imag extractions.
+Helper function. See equation 14.
 """
 function l_equation_elem(y, f, a, b, F::Function)
     g_val = F(complex(a, b))
@@ -48,7 +60,17 @@ function l_equation_elem(y, f, a, b, F::Function)
 end
 
 """
-Compute loss using direct matrix multiplication and fused elementwise operations.
+Vectorized loss function. See equation 23.
+
+# In
+- `zks` Unknown b1 feild map of size (N1, N2, K) where N1 and N2 are spatial dimensions and K is the coil number.
+- `fjs` Underlying object transverse magnetization with shape (N1, N2)
+- `Chi` Matrix of scaling factors of size (M, K) where m is the measurement number and k is the coil number.
+- `Y` Reconstructed images of shape (N1, N2, M) where M is the measurement number
+- `F`
+
+# Out
+- `loss` the loss for the given zks.
 """
 function log_loss(
         zks::AbstractArray, 
@@ -57,11 +79,11 @@ function log_loss(
         Y::AbstractArray,
         F::Function,
     )
-    N, D, K = size(zks)
+    N1, N2, K = size(zks)
     M = size(Chi, 1)
 
     # Reshape and project via Chi
-    Chi_z = reshape(reshape(zks, N * D, K) * Chi', N, D, M)
+    Chi_z = reshape(reshape(zks, N1 * N2, K) * Chi', N1, N2, M)
 
     # Fused calculation over broadcasted arrays
     l_array = l_equation_elem.(Y, fjs, real.(Chi_z), imag.(Chi_z), F)
@@ -70,6 +92,19 @@ end
 
 """
 Objective function for optimization combining log loss and regularization.
+
+    x0 = [real.(z_hat_flat); imag.(z_hat_flat); real.(f_hat_flat); imag.(f_hat_flat)]
+# In
+- `params` A vector of parameters to optimize over. We expect this to be a vector where the first 2NKM elements are the real and imaginary parts of z_hat and the next 2N elements are the real and imaginary parts of f.
+- `zdims` (N1, N2, K)
+- `fdims` (N1, N2)
+- `Beta` Regularization coefficient between 0 and 1
+- `Y` Reconstructed images of shape (N1, N2, M) where M is the measurement number
+- `Chi` Matrix of scaling factors of size (M, K) where m is the measurement number and k is the coil number.
+- `F`
+
+# Out
+- `cost` a real valued cost including both the regularized roughness penalty and log loss
 """
 function psi(
         params::AbstractVector, 
@@ -86,18 +121,25 @@ end
 
 """
 Unpack optimized parameter vector into complex 3D and 2D arrays.
+
+# In
+- `params` (2NK + 2N) vector where the first 2NK elements are 
+the real and imaginary components of the b1 feild and the last 2N 
+are the real and imaginary components of the underlying transervse magnetization.
+- `zdims` (N1, N2, K)
+- `fdims` (N1, N2)
 """
 function unpack(
         params::AbstractVector,
         zdims::Tuple,
         fdims::Tuple 
     )
-    N, D, K = zdims
-    N == fdims[1] || throw(ArgumentError("N's don't match."))
-    D == fdims[2] || throw(ArgumentError("D's don't match."))
+    N1, N2, K = zdims
+    N1 == fdims[1] || throw(ArgumentError("N's don't match."))
+    N2 == fdims[2] || throw(ArgumentError("D's don't match."))
 
-    fn = N * D
-    zn = N * D * K
+    fn = N1 * N2
+    zn = N1 * N2 * K
 
     # Direct vector slicing creates clean, Zygote-friendly adjoints
     zks_real = params[1:zn]
@@ -111,25 +153,39 @@ function unpack(
     return zks, fjs
 end
 
+"""
+Helper function. See appendix C.
+"""
 function H(z::AbstractArray, F::Function)
     return F.(z) ./ (exp.(im .* z) .+ 1e-12)
 end
 
+"""
+Compute the initial estimate of x from the reconstructed images.
+
+# In
+- `Y` Reconstructed images of shape (N1, N2, M) where M is the measurement number
+- `K` The number of coils
+- `F`
+
+# Out
+- The optimzal starting point for the optimziation algorithm
+"""
 function compute_x_hat(
         Y::AbstractArray,
         K::Int,
         F::Function
     )
     T = eltype(Y)
-    N, D, M = size(Y)
+    N1, N2, M = size(Y)
 
-    x_hat_mags = zeros(T, N, D, K)
+    x_hat_mags = zeros(T, N1, N2, K)
     for m in 1:K
         ratio = real(0.5 .* abs.(Y[:, :, m + K] ./ (Y[:, :, m] .+ 1e-12)))
         x_hat_mags[:, :, m] = acos.(clamp.(ratio, zero(real(T)), one(real(T)) - 1e-7))
     end
 
-    x_hat_angles = zeros(eltype(Y), N, D, K)
+    x_hat_angles = zeros(eltype(Y), N1, N2, K)
     for m in 1:K
         x_hat_angles[:, :, m] = angle.(Y[:, :, m]) - angle.(H(abs.(x_hat_mags[:, :, K]), F))
     end
@@ -137,36 +193,56 @@ function compute_x_hat(
     return x_hat_mags .* exp.(im .* x_hat_angles)
 end
 
+"""
+
+# In
+- `z_hat` The inital guess for the b1 feild of size (N1, N2, K) where k is the coil number.
+- `Chi` Matrix of scaling factors of size (M, K) where m is the measurement number and k is the coil number.
+
+# Out
+- 
+"""
 function compute_composite_map(
         z_hat::AbstractArray,
         chi::AbstractArray
     )
-    N, D, K = size(z_hat)
+    N1, N2, K = size(z_hat)
     M = size(chi, 1)
     K == size(chi, 2) || throw(ArgumentError("K's don't match."))
 
-    x = zeros(eltype(z_hat), N, D, M)
+    x = zeros(eltype(z_hat), N1, N2, M)
     for k in 1:K
         z_flat = reshape(z_hat[:, :, k], :, 1)  # (N*D) x 1
         x_perm = chi[:, k] * z_flat'            # M x (N*D)
-        x_perm = reshape(x_perm, M, N, D)       # M x N x D
+        x_perm = reshape(x_perm, M, N1, N2)       # M x N x D
         x += permutedims(x_perm, (2, 3, 1))      # N x D x M
     end
 
     return x
 end
 
+"""
+Calculate the starting f for the optimization algorithm.
+
+    # In
+    - `Y` Reconstructed images of shape (N1, N2, M) where M is the measurement number
+    - `z_hat` The inital guess for the b1 feild of size (N1, N2, K) where k is the coil number.
+    - `Chi` Matrix of scaling factors of size (M, K) where m is the measurement number and k is the coil number.
+
+    # Out
+    - The inital guess for the underlying transverse magnetization of size (N1, N2)
+"""
 function compute_f_hat(
         Y::AbstractArray,
         z_hat::AbstractArray,
         chi::AbstractArray,
         F::Function
     )
-    N, D, M = size(Y)
+    N1, N2, M = size(Y)
     xjm = compute_composite_map(z_hat, chi)
 
-    top = zeros(eltype(Y), N, D)
-    bottom = zeros(eltype(Y), N, D)
+    top = zeros(eltype(Y), N1, N2)
+    bottom = zeros(eltype(Y), N1, N2)
 
     for m in 1:M
         top += real.(conj.(Y[:, :, m]) .* F.(xjm[:, :, m]))
@@ -176,6 +252,20 @@ function compute_f_hat(
     return top ./ bottom
 end
 
+"""
+Perform the regularized b1 fit.
+
+# In
+- `Beta` Regularization coefficient
+- `Y` Reconstructed images of shape (N1, N2, M) where M is the measurement number
+- `Chi` Matrix of scaling factors of size (M, K) where m is the measurement number and k is the coil number.
+- `F`
+- `MAX_ITTER`
+
+# Out
+- `zk_opt` The estimated b1 feild of size (N1, N2, K)
+- `fj_opt` The estimated transverse magnetization of size(N1, N2)
+"""
 function b1_fit(
         Beta::Real,
         Y::AbstractArray,
@@ -183,10 +273,10 @@ function b1_fit(
         F::Function,
         MAX_ITTER::Int
     )
-    N, D, M = size(Y)
+    N1, N2, M = size(Y)
     K = size(Chi, 2) 
-    zdims = (N, D, K)
-    fdims = (N, D)
+    zdims = (N1, N2, K)
+    fdims = (N1, N2)
 
     # Error checking
     M == size(Chi, 1) || throw(ArgumentError("M's don't match."))
@@ -201,7 +291,7 @@ function b1_fit(
     x_hat_perm = PermutedDimsArray(x_hat, (3, 1, 2))
     x_hat_flat = reshape(x_hat_perm, K, :)
     z_hat_flat = Chi_tilda \ x_hat_flat
-    z_hat_perm = reshape(z_hat_flat, K, N, D)
+    z_hat_perm = reshape(z_hat_flat, K, N1, N2)
 
     z_hat = permutedims(z_hat_perm, (2, 3, 1))
     f_hat = compute_f_hat(Y, z_hat, Chi, F)
@@ -217,7 +307,6 @@ function b1_fit(
         show_trace = true
     )
     
-    println("Optimizing")
     out = Optim.optimize(cost, x0, LBFGS(), options; autodiff = AutoZygote())
     zk_opt, fj_opt = unpack(out.minimizer, zdims, fdims)
 
@@ -229,14 +318,14 @@ function DAM(
         aj::AbstractMatrix,
         std::Float64
     )
-    N, D = size(fj)
-    N == size(aj, 1) || throw(ArgumentError("N's don't match."))
-    D == size(aj, 2) || throw(ArgumentError("D's don't match."))
+    N1, N2 = size(fj)
+    N1 == size(aj, 1) || throw(ArgumentError("N's don't match."))
+    N2 == size(aj, 2) || throw(ArgumentError("D's don't match."))
 
-    yj1 = fj .* sin.(aj) + std * randn(ComplexF32, (N, D))
-    yj2 = fj .* sin.(2 .* aj) + std * randn(ComplexF32, (N, D))
+    yj1 = fj .* sin.(aj) + std * randn(ComplexF32, (N1, N2))
+    yj2 = fj .* sin.(2 .* aj) + std * randn(ComplexF32, (N1, N2))
 
-    ydata = ones(ComplexF64, (N, D, 2))
+    ydata = ones(ComplexF64, (N1, N2, 2))
     ydata[:, :, 1] = yj1
     ydata[:, :, 2] = yj2
     return ydata
