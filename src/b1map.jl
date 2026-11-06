@@ -169,7 +169,7 @@ Compute the initial estimate of x from the reconstructed images.
 - `F`
 
 # Out
-- The optimzal starting point for the optimziation algorithm
+- The optimal starting point for the optimziation algorithm
 """
 function compute_x_hat(
         Y::AbstractArray,
@@ -311,22 +311,4 @@ function b1_fit(
     zk_opt, fj_opt = unpack(out.minimizer, zdims, fdims)
 
     return zk_opt, fj_opt
-end
-
-function DAM(
-        fj::AbstractMatrix,
-        aj::AbstractMatrix,
-        std::Float64
-    )
-    N1, N2 = size(fj)
-    N1 == size(aj, 1) || throw(ArgumentError("N's don't match."))
-    N2 == size(aj, 2) || throw(ArgumentError("D's don't match."))
-
-    yj1 = fj .* sin.(aj) + std * randn(ComplexF32, (N1, N2))
-    yj2 = fj .* sin.(2 .* aj) + std * randn(ComplexF32, (N1, N2))
-
-    ydata = ones(ComplexF64, (N1, N2, 2))
-    ydata[:, :, 1] = yj1
-    ydata[:, :, 2] = yj2
-    return ydata
 end
