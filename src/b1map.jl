@@ -41,7 +41,7 @@ end
 Compute the total roughness penalty over each coil slice using sum generator syntax. See equation 6.
 
 # In
-- `zks` Unknown b1 feild map of size (N1, N2, K) where N1 and N2 are spatial dimensions and K is the coil number.
+- `zks` Unknown b1 field map of size (N1, N2, K) where N1 and N2 are spatial dimensions and K is the coil number.
 
 # Out
 - `cost` Returns the total roughness penalty across each coil.
@@ -63,7 +63,7 @@ end
 Vectorized loss function. See equation 23.
 
 # In
-- `zks` Unknown b1 feild map of size (N1, N2, K) where N1 and N2 are spatial dimensions and K is the coil number.
+- `zks` Unknown b1 field map of size (N1, N2, K) where N1 and N2 are spatial dimensions and K is the coil number.
 - `fjs` Underlying object transverse magnetization with shape (N1, N2)
 - `Chi` Matrix of scaling factors of size (M, K) where m is the measurement number and k is the coil number.
 - `Y` Reconstructed images of shape (N1, N2, M) where M is the measurement number
@@ -124,7 +124,7 @@ Unpack optimized parameter vector into complex 3D and 2D arrays.
 
 # In
 - `params` (2NK + 2N) vector where the first 2NK elements are 
-the real and imaginary components of the b1 feild and the last 2N 
+the real and imaginary components of the b1 field and the last 2N 
 are the real and imaginary components of the underlying transervse magnetization.
 - `zdims` (N1, N2, K)
 - `fdims` (N1, N2)
@@ -169,7 +169,7 @@ Compute the initial estimate of x from the reconstructed images.
 - `F`
 
 # Out
-- The optimal starting point for the optimziation algorithm
+- The optimal starting point for the optimization algorithm
 """
 function compute_x_hat(
         Y::AbstractArray,
@@ -196,7 +196,7 @@ end
 """
 
 # In
-- `z_hat` The inital guess for the b1 feild of size (N1, N2, K) where k is the coil number.
+- `z_hat` The initial guess for the b1 field of size (N1, N2, K) where k is the coil number.
 - `Chi` Matrix of scaling factors of size (M, K) where m is the measurement number and k is the coil number.
 
 # Out
@@ -226,11 +226,11 @@ Calculate the starting f for the optimization algorithm.
 
     # In
     - `Y` Reconstructed images of shape (N1, N2, M) where M is the measurement number
-    - `z_hat` The inital guess for the b1 feild of size (N1, N2, K) where k is the coil number.
+    - `z_hat` The initial guess for the b1 field of size (N1, N2, K) where k is the coil number.
     - `Chi` Matrix of scaling factors of size (M, K) where m is the measurement number and k is the coil number.
 
     # Out
-    - The inital guess for the underlying transverse magnetization of size (N1, N2)
+    - The initial guess for the underlying transverse magnetization of size (N1, N2)
 """
 function compute_f_hat(
         Y::AbstractArray,
@@ -263,7 +263,7 @@ Perform the regularized b1 fit.
 - `MAX_ITTER`
 
 # Out
-- `zk_opt` The estimated b1 feild of size (N1, N2, K)
+- `zk_opt` The estimated b1 field of size (N1, N2, K)
 - `fj_opt` The estimated transverse magnetization of size(N1, N2)
 """
 function b1_fit(
@@ -283,14 +283,14 @@ function b1_fit(
     M == 2 * K || throw(ArgumentError("Chi must be M x M/2."))
     
     half_M = div(M, 2)
-    Chi_tilda = Chi[1:half_M, :]
-    isapprox(Chi[half_M + 1:end, :], 2 * Chi_tilda) || throw(ArgumentError("The bottom half of Chi must be twice the top half of Chi."))
+    Chi_tilde = Chi[1:half_M, :]
+    isapprox(Chi[half_M + 1:end, :], 2 * Chi_tilde) || throw(ArgumentError("The bottom half of Chi must be twice the top half of Chi."))
     
     # Initial guess estimation
     x_hat = compute_x_hat(Y, K, F)
     x_hat_perm = PermutedDimsArray(x_hat, (3, 1, 2))
     x_hat_flat = reshape(x_hat_perm, K, :)
-    z_hat_flat = Chi_tilda \ x_hat_flat
+    z_hat_flat = Chi_tilde \ x_hat_flat
     z_hat_perm = reshape(z_hat_flat, K, N1, N2)
 
     z_hat = permutedims(z_hat_perm, (2, 3, 1))

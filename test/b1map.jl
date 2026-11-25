@@ -1,6 +1,6 @@
 # test/b1map.jl
 
-using MRIFieldmaps: roughness_penalty, b1_fit
+using MRIFieldmaps: roughness_penalty, b1_fit, regularizer
 using Test: @test, @testset, @test_throws, @inferred
 
 @testset "b1map.jl" begin
