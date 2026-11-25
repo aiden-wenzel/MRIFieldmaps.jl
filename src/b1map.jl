@@ -3,7 +3,7 @@ using ADTypes: AutoReverseDiff, AutoZygote
 using Optim: optimize, LBFGS 
 import Optim
 
-export roughness_penalty, regularizer, log_loss, unpack, b1_fit, complex_gaussian_noise, DAM
+export roughness_penalty, regularizer, log_loss, unpack, b1_fit
 
 """
 Compute the roughness penalty for a 2d image with vectorized operations. See eqation 41 in regularized B1 mapping paper.
